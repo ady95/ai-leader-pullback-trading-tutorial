@@ -1,0 +1,29 @@
+# AI로 검증하는 주도주 눌림매매 따라하기 — 예제 코드
+
+위키독스 책 「[AI로 검증하는 주도주 눌림매매 따라하기](https://wikidocs.net/book/21991)」의 실습 코드 저장소입니다.
+
+> 이 저장소는 교육·연구 목적의 예제 코드이며 투자 권유가 아닙니다. 주문 실습은 모의투자 환경에서만 진행합니다.
+
+## 빠른 시작
+
+```bash
+git clone https://github.com/ady95/ai-leader-pullback-trading-tutorial.git
+cd ai-leader-pullback-trading-tutorial
+uv sync                      # Python 3.11+ 가상환경과 패키지 설치
+cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
+```
+
+## 장별 실행 순서
+
+책의 연재에 맞춰 장별 실행 명령을 이 표에 추가합니다.
+
+| 장 | 명령 | 결과물 |
+|---|---|---|
+
+## 데이터 이용 안내
+
+원시 시세·뉴스 원문은 제공사 이용 조건 때문에 저장소에 넣지 않습니다. `data/` 폴더는 각자 수집 스크립트로 채웁니다.
+
+## 라이선스
+
+MIT

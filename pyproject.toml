@@ -1,0 +1,17 @@
+[project]
+name = "pullback"
+version = "0.1.0"
+description = "위키독스 「AI로 검증하는 주도주 눌림매매 따라하기」 예제 코드"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.1",
+    "pandas>=2.2",
+    "pyarrow>=17.0",
+    "python-dotenv>=1.0",
+    "requests>=2.32",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.11,<0.12.0"]
+build-backend = "uv_build"
