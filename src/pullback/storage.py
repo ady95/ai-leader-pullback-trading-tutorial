@@ -24,10 +24,17 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
 def build() -> None:
     con = connect()
     pattern = (DAILY_DIR / "*.parquet").as_posix()
+    # amount 가 없는 행(폐지 종목 보조 소스)은 평균가격 x 거래량으로 거래대금을 추정한다.
+    # 키움 데이터로 재 보면 이 추정치는 실제 거래대금의 ±10% 안에 99.8% 들어온다 (04-2).
     con.execute(f"""
         CREATE OR REPLACE VIEW daily AS
-        SELECT regexp_extract(filename, '([0-9A-Z]{{6}})\\.parquet$', 1) AS code, * EXCLUDE (filename)
-        FROM read_parquet('{pattern}', filename = true, union_by_name = true)
+        SELECT *,
+               coalesce(nullif(amount, 'NaN'::DOUBLE), (open + high + low + close) / 4 * volume) AS amount_filled,
+               (amount IS NULL OR isnan(amount)) AS amount_is_est
+        FROM (
+            SELECT regexp_extract(filename, '([0-9A-Z]{{6}})\\.parquet$', 1) AS code, * EXCLUDE (filename)
+            FROM read_parquet('{pattern}', filename = true, union_by_name = true)
+        )
     """)
     con.execute(f"CREATE OR REPLACE VIEW universe AS SELECT * FROM read_parquet('{UNIVERSE.as_posix()}')")
     n = con.execute("SELECT count(*), count(DISTINCT code), min(date), max(date) FROM daily").fetchone()

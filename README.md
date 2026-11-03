@@ -19,6 +19,11 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 
 | 장 | 명령 | 결과물 |
 |---|---|---|
+| 4-1 | `uv run python scripts/measure_04_1.py` | 키움 API 조회 범위·호출 제한 측정 결과 (화면 출력) |
+| 4-2 | `uv run python -m pullback.collect.universe` | `data/raw/universe.parquet` (상장 + 2021년 이후 폐지 종목) |
+| 4-2 | `uv run python -m pullback.collect.daily --start 2020-01-01 --end 2026-11-03` | `data/raw/daily/*.parquet` (종목별 일봉, 약 2시간) |
+| 4-3 | `uv run python -m pullback.storage` | `data/pullback.duckdb` (`daily`, `universe` 뷰) |
+| 4-3 | `uv run python -m pullback.quality --start 2021-01-01` | 품질 검사 리포트 (출처별 Q1~Q6) |
 
 ## 데이터 이용 안내
 
