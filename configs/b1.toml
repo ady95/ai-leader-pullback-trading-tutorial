@@ -1,0 +1,15 @@
+# B1 = B0 v1.2 + 시장 국면 필터 (07-2)
+#
+# B0 개발 구간 수익률(07-1)을 본 뒤, 국면별 분해 결과를 보기 전에 등록했다.
+# 01-3 의 설계대로 '가장 단순한 국면 필터' 하나만 둔다. 다른 국면 규칙은 비교용 대안이다.
+
+[meta]
+id = "B1"
+version = "1.0"
+registered = "2026-11-04"
+base = "configs/b0.toml v1.2"
+seen_before_registration = "B0 개발·검증 구간 거래당 수익률, 연도별 수익률 (07-1)"
+
+[market_filter]
+rule = "index_above_ma60"     # 신호일(t일) 장 마감에 그 종목 시장 지수 종가 >= 지수 60일 이동평균일 때만 1차 주문
+variants = ["index_ret20_positive"]
