@@ -81,7 +81,8 @@ def random_benchmark(x: pd.DataFrame, keep: np.ndarray, rng, draws: int):
 
 def ledger() -> None:
     """지금까지 매매 성과를 계산한 모든 변형. 개발 구간 순위가 검증 구간에서 유지되는가."""
-    d = pd.read_csv("configs/trials_ledger.csv")
+    d = pd.read_csv("configs/trials_ledger.csv", dtype={"section": str})
+    d = d[d["section"].str[:2] <= "11"]           # 11-3 시점(11장까지)의 대장. 12장 이후 행은 각 장에서 다룸
     same = d[d["window"] == "dev 2021-2024"]
     print(f"== 11-3 시행 대장: B0 포함 {len(d)}개 (같은 개발 구간 {len(same)}개)")
     print(f"  개발 구간 거래당 평균 > 0 인 변형: {(same['dev_mean_pct'] > 0).sum()}개, 최고 {same['dev_mean_pct'].max():+.2f}%")
