@@ -29,6 +29,9 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 4-3 | `uv run python -m pullback.storage` | `data/pullback.duckdb` (`daily`, `universe` 뷰) |
 | 4-3 | `uv run python -m pullback.quality --start 2021-01-01` | 품질 검사 리포트 (출처별 Q1~Q6) |
 | 5-1 | `uv run python scripts/describe_05.py` | B0 후보일 특징량 분포·중복도, `data/features_b0.parquet` |
+| 5-2 | `uv run python -m pullback.collect.index` | `data/raw/index.parquet` (코스피·코스닥 지수 일봉) |
+| 5-2 | `uv run python -m pullback.collect.theme_snapshot` | `data/raw/theme_snapshots/날짜.parquet` (키움 테마 스냅샷, 장 마감 뒤 매일) |
+| 5-2 | `uv run python scripts/describe_05_2.py` | 상대강도·동반 급등 테마 특징량, 키움 테마 비교, 절단 검증 |
 | 5-3 | `uv run python scripts/verify_05_3.py` | 절단 검증(미래 데이터 누수 검사), 수정주가 누수 규모 (약 4분) |
 
 ## 데이터 이용 안내
