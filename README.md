@@ -47,6 +47,8 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 10 | `uv run python -m pullback.disclosure` | 공시 제목 LLM 분류 (`.env` 에 `OPENAI_API_KEY`, `OPENAI_MODEL`) |
 | 10 | `uv run python scripts/leak_10_2.py --n 120 --forced` | LLM 사후 지식 유입 실험 |
 | 10 | `uv run python scripts/eval_10.py` | 공시 구조화 통계, 필터 적용 건수 (`--show-returns` 매매 성과·채택 판정, `--lgbm` AUC 진단) |
+| 11 | `uv run python scripts/eval_11.py` | B0·B1·A1·A2 동일 조건 비교, 제외 거래, 무작위 필터 기준, 비용 민감도 |
+| 11 | `uv run python scripts/eval_11.py --ledger` | 시행 대장 (`configs/trials_ledger.csv`), 개발-검증 순위 상관 |
 
 ## 데이터 이용 안내
 
