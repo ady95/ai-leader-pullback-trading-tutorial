@@ -20,6 +20,9 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 장 | 명령 | 결과물 |
 |---|---|---|
 | 2 | `uv run python scripts/describe_02.py` | 주도주·파동·지지선 정의의 기술 통계 (수익률 미계산, 약 30초) |
+| 3-1 | `uv run python scripts/verify_03_1.py` | 지표 구현 검증 (빠른 구현 vs 단순 구현, 손 계산) |
+| 3-2 | `uv run python scripts/describe_03.py` | 규칙 구조 통계 (예열 결측, 기준선 고정성, 2차 매수 위치) |
+| 3-3 | `uv run python -m pullback.spec configs/b0.toml` | B0 명세서 검증과 SHA-256 지문 |
 | 4-1 | `uv run python scripts/measure_04_1.py` | 키움 API 조회 범위·호출 제한 측정 결과 (화면 출력) |
 | 4-2 | `uv run python -m pullback.collect.universe` | `data/raw/universe.parquet` (상장 + 2021년 이후 폐지 종목) |
 | 4-2 | `uv run python -m pullback.collect.daily --start 2020-01-01 --end 2026-11-03` | `data/raw/daily/*.parquet` (종목별 일봉, 약 2시간) |
