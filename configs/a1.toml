@@ -1,0 +1,48 @@
+# A1 = B0 v1.2 + LightGBM 실패 눌림목 필터 (08~09장)
+#
+# 사전 등록 문서. B0 의 개발·검증 구간 성과(07장)를 본 뒤, 라벨·모델을 만들기 전에 등록했다.
+# 01-3 의 'H1 기각 시 AI 단계로 넘어가지 않는다' 규칙과 다르게 진행한다는 사실과 그 이유를 기록한다.
+
+[meta]
+id = "A1"
+version = "1.0"
+registered = "2026-11-04"
+base = "configs/b0.toml v1.2"
+deviation = "01-3 기각 처리 규칙과 다름: H1 기각 후에도 AI 단계 진행. 이유: B0 는 손익비 구조(평균 이익/손실 2.3~3.5)가 있고 성과 차이가 승률에서 오므로, '실패할 눌림목을 거르는' 필터(H6)의 검증 대상으로 의미가 있다고 판단. 대신 채택 기준을 더 엄격히 둔다."
+seen_before_registration = "B0 개발·검증 거래 성과, 국면별 분해, 명세서 대안 비교 (07장)"
+
+[observation]                   # 08-1
+unit = "signal_day"             # B0 후보일 중 1차 매수선이 계산된 날 (t일 장 마감), 다음 날 체결된 날만 학습에 사용
+group = "wave"                  # 같은 (종목, 파동 고점일) 은 한 묶음: 교차검증·퍼지 단위
+
+[label]                         # 08-2 Triple Barrier, t+1일 체결가 기준
+upper = 0.20                    # B0 1차 익절선
+lower_close = 0.0688            # B0 손절선 (체결가 x 0.96 x 0.97, 종가 기준)
+vertical_days = 60              # B0 시간 청산
+same_day = "lower_first"        # 같은 날 둘 다 닿으면 손절 먼저
+alt_labels = ["upper_0.25", "upper_0.05_lower_0.04_days_5"]
+
+[split]                         # 08-3, 09-3
+scheme = "expanding_walk_forward_by_year"
+folds = [ ["2021", "2022"], ["2022", "2023"], ["2023", "2024"], ["2024", "2025"] ]  # [학습 마지막 해, 예측 해]
+purge_days = 60                 # 예측 시작일 전 60거래일 안에 라벨 기간이 겹치는 학습 표본 제거
+holdout = "2026, 14장에서 한 번만"
+
+[model]                         # 09장
+algorithm = "lightgbm"
+features = "05장 18개 + 시장 4개 + 테마 4개"
+hyperparameters = "고정: num_leaves=15, learning_rate=0.03, n_estimators=300, min_child_samples=50, subsample=0.8, colsample_bytree=0.8, 튜닝 없음"
+calibration = "isotonic, 학습 구간 안 시간순 마지막 20% 로 보정"
+
+[decision]
+rule = "calibrated_p_upper >= threshold 인 신호일에만 1차 주문"
+threshold = 0.30                # B0 손익비(약 2.3)에서 본전 승률 약 30%
+
+[adoption]                      # 모두 만족해야 채택. 01-3 원칙보다 엄격
+oos_years = ["2022", "2023", "2024"]
+oos_account_pnl_positive = true          # 2022~2024 예측 구간 합산 계좌 손익 > 0
+oos_money_weighted_positive = true       # 같은 구간 금액 가중 평균 순수익률 > 0
+validation_better_than_b0 = true         # 2025 거래당 평균이 B0(+6.02%)보다 높고 계좌 MDD 가 B0(-3.74%)보다 나쁘지 않음
+cost_stress_holds = true                 # 슬리피지 0.3% 에서도 위 조건 유지
+filtered_out_worse = true                # 걸러낸 거래의 평균이 남긴 거래의 평균보다 낮음
+min_trades = 100                         # 2022~2024 예측 구간 합산 거래 수
