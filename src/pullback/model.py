@@ -37,17 +37,19 @@ def train_set(ds: pd.DataFrame, last_train: str, pred: str) -> pd.DataFrame:
 class Fitted:
     model: object
     iso: IsotonicRegression
+    features: list = None
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        raw = self.model.predict_proba(X[ALL_FEATURES])[:, 1]
+        raw = self.model.predict_proba(X[self.features or ALL_FEATURES])[:, 1]
         return self.iso.predict(raw)
 
     def predict_raw(self, X: pd.DataFrame) -> np.ndarray:
-        return self.model.predict_proba(X[ALL_FEATURES])[:, 1]
+        return self.model.predict_proba(X[self.features or ALL_FEATURES])[:, 1]
 
 
-def fit(train: pd.DataFrame, kind: str = "lgbm") -> Fitted:
+def fit(train: pd.DataFrame, kind: str = "lgbm", features: list | None = None) -> Fitted:
     """시간순 앞 80% 로 학습, 뒤 20% 로 isotonic 보정."""
+    features = features or ALL_FEATURES
     n_cal = int(len(train) * CALIB_FRACTION)
     fit_part, cal_part = train.iloc[:-n_cal], train.iloc[-n_cal:]
     y_fit = (fit_part["y"] == 1).astype(int)
@@ -57,8 +59,8 @@ def fit(train: pd.DataFrame, kind: str = "lgbm") -> Fitted:
         model = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(C=1.0, max_iter=2000))
     else:
         raise ValueError(kind)
-    model.fit(fit_part[ALL_FEATURES], y_fit)
-    raw = model.predict_proba(cal_part[ALL_FEATURES])[:, 1]
+    model.fit(fit_part[features], y_fit)
+    raw = model.predict_proba(cal_part[features])[:, 1]
     iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
     iso.fit(raw, (cal_part["y"] == 1).astype(int))
-    return Fitted(model, iso)
+    return Fitted(model, iso, features)

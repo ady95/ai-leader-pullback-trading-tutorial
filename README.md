@@ -43,6 +43,10 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 8 | `uv run python scripts/describe_08.py` | 표본·라벨 분포(2026 비공개), 폴드별 퍼지 |
 | 9 | `uv run python scripts/train_09.py` | Walk-forward 학습, 기준 모델 비교, 보정, SHAP, `data/results/a1_scores.parquet` |
 | 9 | `uv run python scripts/eval_09_3.py` | A1 필터 매매 평가와 채택 판정 |
+| 10 | `uv run python -m pullback.collect.dart` | DART 공시 목록 수집 (`.env` 에 `DART_API_KEY`) |
+| 10 | `uv run python -m pullback.disclosure` | 공시 제목 LLM 분류 (`.env` 에 `OPENAI_API_KEY`, `OPENAI_MODEL`) |
+| 10 | `uv run python scripts/leak_10_2.py --n 120 --forced` | LLM 사후 지식 유입 실험 |
+| 10 | `uv run python scripts/eval_10.py` | 공시 구조화 통계, 필터 적용 건수 (`--show-returns` 매매 성과·채택 판정, `--lgbm` AUC 진단) |
 
 ## 데이터 이용 안내
 

@@ -16,6 +16,7 @@ import re
 import sys
 import time
 
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -27,6 +28,7 @@ CATEGORIES = ["정기보고", "지분변동", "자금조달", "계약수주", "�
               "소송사고", "투자합병", "주주환원", "주총기타", "기타"]
 IMPACTS = ["호재", "악재", "중립"]
 BATCH = 40
+USAGE = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
 
 PROMPT = """당신은 한국 상장사 공시를 분류하는 애널리스트입니다.
 아래는 회사명과 날짜를 지운 DART 공시 제목 목록입니다. 각 제목에 대해 다음을 판단하세요.
@@ -97,6 +99,10 @@ def classify(titles: list[str], client, model: str, tries: int = 4) -> list[dict
         try:
             r = client.chat.completions.create(model=model, response_format={"type": "json_object"},
                                                messages=[{"role": "user", "content": content}])
+            USAGE["calls"] += 1
+            if r.usage:
+                USAGE["prompt_tokens"] += r.usage.prompt_tokens
+                USAGE["completion_tokens"] += r.usage.completion_tokens
             items = json.loads(r.choices[0].message.content).get("items")
             if _valid(items, len(titles)):
                 return items
@@ -143,8 +149,53 @@ def events() -> pd.DataFrame:
 def main() -> None:
     out = label_titles()
     print(f"제목 {len(out):,}개 분류 -> {LABELS}")
-    print(out["impact"].value_counts().to_dict())
+    print(out["impact"].value_counts().to_dict(), USAGE)
 
 
 if __name__ == "__main__":
     main()
+
+
+DISC_FEATURES = ["bad_since_peak", "n_events_since_peak", "has_material_rise", "fresh_material", "days_since_good"]
+
+
+def _count_between(dates: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """정렬된 사건 날짜 중 [lo, hi] 안에 든 개수."""
+    return np.searchsorted(dates, hi, side="right") - np.searchsorted(dates, lo, side="left")
+
+
+def order_day_features(df: pd.DataFrame, mask: pd.Series, ev: pd.DataFrame, impact_col: str = "impact") -> pd.DataFrame:
+    """mask 인 날(t일 장 마감)마다 t일까지 접수된 공시로 만든 특징량.
+
+    bad_since_peak      파동 고점일 ~ t일에 '악재' 공시가 있는가 (A2 필터)
+    n_events_since_peak 같은 구간의 공시 사건 수
+    has_material_rise   상승 구간(저점일 ~ 고점일)에 '호재·material' 공시가 있는가
+    fresh_material      그 재료가 새로운가: 저점일 전 365일 동안 같은 범주의 호재·material 공시가 없었음
+    days_since_good     t일 기준 가장 최근 호재·material 공시 이후 경과일 (없으면 NaN)
+    """
+    ev = ev[ev["is_event"]]
+    rows = df.loc[mask, ["code", "date", "peak_date", "trough_date"]]
+    out = pd.DataFrame(index=rows.index, columns=DISC_FEATURES, dtype=float)
+    for code, r in rows.groupby("code", sort=False):
+        e = ev[ev["code"] == code].sort_values("date")
+        t = r["date"].to_numpy("datetime64[ns]")
+        pk = pd.to_datetime(r["peak_date"]).to_numpy("datetime64[ns]")
+        tr = pd.to_datetime(r["trough_date"]).to_numpy("datetime64[ns]")
+        all_d = e["date"].to_numpy("datetime64[ns]")
+        bad = e.loc[e[impact_col] == "악재", "date"].to_numpy("datetime64[ns]")
+        good = e[(e["impact"] == "호재") & e["material"].astype(bool)]
+        gd = good["date"].to_numpy("datetime64[ns]")
+        out.loc[r.index, "bad_since_peak"] = (_count_between(bad, pk, t) > 0).astype(float)
+        out.loc[r.index, "n_events_since_peak"] = _count_between(all_d, pk, t)
+        out.loc[r.index, "has_material_rise"] = (_count_between(gd, tr, pk) > 0).astype(float)
+        fresh = np.zeros(len(r))
+        for cat, g in good.groupby("category"):
+            d = g["date"].to_numpy("datetime64[ns]")
+            in_rise = _count_between(d, tr, pk) > 0
+            before = _count_between(d, tr - np.timedelta64(365, "D"), tr - np.timedelta64(1, "D")) > 0
+            fresh = np.maximum(fresh, (in_rise & ~before).astype(float))
+        out.loc[r.index, "fresh_material"] = fresh
+        k = np.searchsorted(gd, t, side="right") - 1
+        last = pd.Series(gd[np.clip(k, 0, None)] if len(gd) else pd.NaT, index=r.index).where(k >= 0)
+        out.loc[r.index, "days_since_good"] = (pd.Series(t, index=r.index) - pd.to_datetime(last)).dt.days
+    return out
