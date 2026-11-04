@@ -28,6 +28,8 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 4-2 | `uv run python -m pullback.collect.daily --start 2020-01-01 --end 2026-11-03` | `data/raw/daily/*.parquet` (종목별 일봉, 약 2시간) |
 | 4-3 | `uv run python -m pullback.storage` | `data/pullback.duckdb` (`daily`, `universe` 뷰) |
 | 4-3 | `uv run python -m pullback.quality --start 2021-01-01` | 품질 검사 리포트 (출처별 Q1~Q6) |
+| 5-1 | `uv run python scripts/describe_05.py` | B0 후보일 특징량 분포·중복도, `data/features_b0.parquet` |
+| 5-3 | `uv run python scripts/verify_05_3.py` | 절단 검증(미래 데이터 누수 검사), 수정주가 누수 규모 (약 4분) |
 
 ## 데이터 이용 안내
 
