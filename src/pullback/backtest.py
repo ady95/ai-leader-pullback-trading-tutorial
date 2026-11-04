@@ -41,6 +41,11 @@ class Rules:
     tp_fixed: float = 0.25
     second_require_ma60: bool = False   # 원문 문구: 2차 매수가가 전날 60일선 ±3% 안일 때만
     second_skip_gap: bool = False       # 12-2 C1: 시가가 2차 매수가 아래인 날(갭 체결)에는 2차 매수를 하지 않는다
+    # 13장 청산 대안 (기본값 = B0)
+    stop_mode: str = "b0"               # b0 | atr: 손절선 = 1차 체결가 x (1 - atr_k x 신호일 ATR/종가)
+    atr_k: float = 0.669
+    trail_on: float = 0.0               # > 0 이면 최고 고가가 평균 단가 x (1 + trail_on) 이상이 된 뒤 트레일링
+    noprog_day: int = 0                 # > 0 이면 그 거래일째 종가가 평균 단가 아래일 때 청산
 
     @classmethod
     def from_spec(cls, spec: dict, **override) -> "Rules":
@@ -81,6 +86,7 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
     peak = x["peak_date"].to_numpy()
     line = first_buy_price(x, r.first_line).to_numpy(float)
     ma60 = x["ma60"].to_numpy(float)
+    atr_pct = (x["atr"] / x["close"]).to_numpy(float) if "atr" in x else np.full(len(x), np.nan)
     code = x["code"].iloc[0]
 
     trades, events = [], []
@@ -158,7 +164,8 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
                 used_waves.add(wave)
                 pos = {"entry_i": i, "units": 1.0, "buys": [(price, 1.0, d[i])], "sells": [],
                        "second_price": price * (1 - r.second_drop), "second_done": False,
-                       "tp1_done": False, "exit_next_open": "",
+                       "tp1_done": False, "exit_next_open": "", "max_high": 0.0,
+                       "atr_pct": atr_pct[i - 1] if i > 0 else np.nan,
                        "trade": {"code": code, "wave_peak": wave, "entry_date": d[i], "entry_price": price,
                                  "gap_fill": bool(o[i] <= price_lim), "second_date": pd.NaT}}
                 ev(i, "buy1", price, 1.0)
@@ -167,9 +174,20 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
         # ---- 장 마감 ----
         if pos is not None:
             stop_line = pos["second_price"] * (1 - r.stop_zone_buffer)
+            if r.stop_mode == "atr" and not np.isnan(pos["atr_pct"]):
+                stop_line = pos["buys"][0][0] * (1 - r.atr_k * pos["atr_pct"])
+            if i > pos["entry_i"]:
+                pos["max_high"] = max(pos["max_high"], h[i])
+            avg = sum(p * u for p, u, _ in pos["buys"]) / sum(u for _, u, _ in pos["buys"])
+            trail = (r.trail_on > 0 and not np.isnan(pos["atr_pct"]) and pos["max_high"] >= avg * (1 + r.trail_on)
+                     and c[i] < pos["max_high"] * (1 - r.atr_k * pos["atr_pct"]))
             if not halted[i]:
                 if r.use_stop and c[i] < stop_line:
                     pos["exit_next_open"] = "stop"
+                elif trail:
+                    pos["exit_next_open"] = "trail"
+                elif r.noprog_day > 0 and i - pos["entry_i"] == r.noprog_day and c[i] < avg:
+                    pos["exit_next_open"] = "noprog"
                 elif i - pos["entry_i"] >= r.max_hold_days:
                     pos["exit_next_open"] = "time"
         elif setup[i] and not np.isnan(line[i]) and peak[i] not in used_waves:
@@ -195,7 +213,7 @@ def _pnl(trade_buys, trade_sells, r: Rules) -> tuple[float, float, float]:
 def run(df: pd.DataFrame, setup: pd.Series, r: Rules) -> tuple[pd.DataFrame, pd.DataFrame]:
     """전 종목 실행. trades 표(거래당 한 행)와 events 표(체결 기록)를 돌려준다."""
     cols = ["code", "date", "open", "high", "low", "close", "prev_close", "halted",
-            "peak_date", "kijun120", "env_low", "ma60", "ma120"]
+            "peak_date", "kijun120", "env_low", "ma60", "ma120"] + (["atr"] if "atr" in df else [])
     all_trades, all_events = [], []
     for code, x in df[cols].groupby("code", sort=True):
         s = setup.loc[x.index].to_numpy(bool)

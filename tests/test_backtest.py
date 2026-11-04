@@ -135,3 +135,37 @@ def test_c1_skips_second_buy_on_gap_day_only():
     assert b2["date"] == df["date"].iloc[2] and b2["price"] == 94
     c2 = ev_c1[ev_c1["kind"] == "buy2"].iloc[0]
     assert c2["date"] == df["date"].iloc[3] and c2["price"] == 96
+
+
+def test_x3_atr_stop_uses_signal_day_volatility():
+    # 신호일 ATR/종가 = 5.4/108 = 0.05 -> 손절선 100 x (1 - 0.669 x 0.05) = 96.655. B0 손절선은 96 x 0.97 = 93.12
+    from dataclasses import replace
+    bars = [(110, 112, 105, 108), (101, 102, 99, 100), (99, 99.5, 96.2, 96.3), (95, 96, 94.5, 95), (95, 96, 94.5, 95)]
+    df, s = frame(bars)
+    df["atr"] = 5.4
+    t_b0, _ = run(df, s, R)
+    t_x3, ev = run(df, s, replace(R, stop_mode="atr"))
+    assert t_b0.loc[0, "exit_reason"] != "stop"
+    assert t_x3.loc[0, "exit_reason"] == "stop" and t_x3.loc[0, "exit_date"] == df["date"].iloc[3]
+    assert ev[ev["kind"] == "sell"].iloc[0]["price"] == 95
+
+
+def test_x4_trailing_after_activation():
+    # 최고 고가 112 (>= 100 x 1.10) 뒤 종가 108 < 112 x (1 - 0.669 x 0.05) = 108.25 -> 다음 날 시가 청산
+    from dataclasses import replace
+    bars = [(110, 112, 105, 108), (101, 102, 99, 100), (105, 112, 104, 111), (110, 110.5, 107.5, 108),
+            (107, 108, 106, 107)]
+    df, s = frame(bars)
+    df["atr"] = 5.4
+    t, ev = run(df, s, replace(R, trail_on=0.10))
+    assert t.loc[0, "exit_reason"] == "trail" and t.loc[0, "exit_date"] == df["date"].iloc[4]
+    assert ev[ev["kind"] == "sell"].iloc[0]["price"] == 107
+
+
+def test_t2_no_progress_exit_on_that_day_only():
+    from dataclasses import replace
+    bars = [(110, 112, 105, 108), (101, 102, 99, 100), (100, 100.5, 98.5, 99), (99, 100, 98.6, 99.5),
+            (98, 99, 97.5, 98)]
+    df, s = frame(bars)
+    t, _ = run(df, s, replace(R, noprog_day=2))
+    assert t.loc[0, "exit_reason"] == "noprog" and t.loc[0, "exit_date"] == df["date"].iloc[4]
