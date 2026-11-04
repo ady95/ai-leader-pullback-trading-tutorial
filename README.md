@@ -49,6 +49,8 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 10 | `uv run python scripts/eval_10.py` | 공시 구조화 통계, 필터 적용 건수 (`--show-returns` 매매 성과·채택 판정, `--lgbm` AUC 진단) |
 | 11 | `uv run python scripts/eval_11.py` | B0·B1·A1·A2 동일 조건 비교, 제외 거래, 무작위 필터 기준, 비용 민감도 |
 | 11 | `uv run python scripts/eval_11.py --ledger` | 시행 대장 (`configs/trials_ledger.csv`), 개발-검증 순위 상관 |
+| 12 | `uv run python scripts/eval_12.py` | A3 위험관리 구성요소(P1 변동성 수량, C1 조건부 2차, E1·E2 노출 한도, L1 월간 손실 한도)와 채택 판정 |
+| 12 | `uv run python scripts/eval_12.py --skipped` | 노출 한도가 건너뛴 거래의 연도별 성과 |
 
 ## 데이터 이용 안내
 

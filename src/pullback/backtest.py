@@ -40,6 +40,7 @@ class Rules:
     tp_mode: str = "b0"             # b0 | fixed
     tp_fixed: float = 0.25
     second_require_ma60: bool = False   # 원문 문구: 2차 매수가가 전날 60일선 ±3% 안일 때만
+    second_skip_gap: bool = False       # 12-2 C1: 시가가 2차 매수가 아래인 날(갭 체결)에는 2차 매수를 하지 않는다
 
     @classmethod
     def from_spec(cls, spec: dict, **override) -> "Rules":
@@ -113,7 +114,8 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
             else:
                 entry_day = i == pos["entry_i"]
                 near60 = (not r.second_require_ma60) or (i > 0 and abs(ma60[i - 1] / pos["second_price"] - 1) <= 0.03)
-                if (not entry_day and r.second_units > 0 and near60 and not pos["second_done"]
+                gap_ok = not (r.second_skip_gap and o[i] < pos["second_price"])
+                if (not entry_day and r.second_units > 0 and near60 and gap_ok and not pos["second_done"]
                         and _touch(lo[i], pos["second_price"], r.strict_touch)):
                     price = min(o[i], pos["second_price"])
                     pos["buys"].append((price, r.second_units, d[i]))

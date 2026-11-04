@@ -122,3 +122,16 @@ def test_locked_limit_down_defers_stop():
     trades, ev = run(df, s, R)
     assert "defer" in set(ev["kind"])
     assert ev[ev["kind"] == "sell"].iloc[-1]["price"] == 60
+
+
+def test_c1_skips_second_buy_on_gap_day_only():
+    # 1차 100, 2차 96. 2일째 시가 94 (갭) -> C1 은 그날 2차를 사지 않고, 3일째 96 에 닿으면 산다
+    from dataclasses import replace
+    bars = [(110, 112, 105, 108), (101, 102, 99, 100), (94, 97, 94, 96.5), (97, 98, 95.5, 97), (97, 98, 96.5, 97)]
+    df, s = frame(bars)
+    _, ev_b0 = run(df, s, R)
+    _, ev_c1 = run(df, s, replace(R, second_skip_gap=True))
+    b2 = ev_b0[ev_b0["kind"] == "buy2"].iloc[0]
+    assert b2["date"] == df["date"].iloc[2] and b2["price"] == 94
+    c2 = ev_c1[ev_c1["kind"] == "buy2"].iloc[0]
+    assert c2["date"] == df["date"].iloc[3] and c2["price"] == 96

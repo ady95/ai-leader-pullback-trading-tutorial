@@ -42,13 +42,16 @@ def bootstrap_mean_ci(r: pd.Series, groups: pd.Series, n_boot: int = 2000, seed:
 
 def equity_curve(events: pd.DataFrame, trades: pd.DataFrame, daily: pd.DataFrame, r,
                  unit_money: float = 5e6, capital: float = 1e8) -> pd.DataFrame:
-    """거래마다 1차 매수 금액을 unit_money 로 맞춰 일별 평가 손익을 더한다 (복리 없음)."""
+    """거래마다 1차 매수 금액을 unit_money 로 맞춰 일별 평가 손익을 더한다 (복리 없음).
+
+    trades 에 unit_money 열이 있으면 거래마다 그 금액을 쓴다 (12-1 수량 정책).
+    """
     closes = daily.set_index(["code", "date"])["close"]
     parts = []
     for t in trades.itertuples():
         g = events[(events["code"] == t.code) & (events["date"] >= t.entry_date) & (events["date"] <= t.exit_date)]
         g = g[g["kind"] != "defer"]
-        k = unit_money / t.entry_price
+        k = getattr(t, "unit_money", unit_money) / t.entry_price   # 거래별 금액(12-1)이 있으면 그 값
         px = closes.loc[t.code].loc[t.entry_date:t.exit_date]
         shares = pd.Series(0.0, index=px.index)
         cash = pd.Series(0.0, index=px.index)
