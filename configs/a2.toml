@@ -10,6 +10,7 @@ registered = "2026-11-04"
 base = "configs/b0.toml v1.2"
 deviation = "01-3 의 A2 = A1 + LLM 에서 A2 = B0 + LLM 으로 변경. 이유: A1 기각(09-3). 뉴스 기사는 과거 시점 데이터를 합법적으로 대량 확보할 출처가 없어 DART 공시만 쓴다."
 seen_before_registration = "B0 개발·검증 성과(07장), A1 결과(09장). 공시 데이터·분류 결과는 보지 않음"
+edits = "등록 뒤 수정은 [llm] model 설명에서 내부 모델 이름을 지운 것뿐 (규칙·기준 변경 없음)"
 
 [data]                              # 10-1
 source = "OpenDART list.json, 후보 종목(B0 주문일이 있는 종목) 전체, 2020-01-01 ~"

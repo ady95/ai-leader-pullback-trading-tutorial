@@ -70,6 +70,22 @@ def line(label, s):
             f"  계좌 {s['pnl']:+.4f}  MDD {s['mdd']:+.4f}")
 
 
+def diff_ci(x: pd.DataFrame, flag: pd.Series, n: int = 2000, seed: int = 0):
+    """flag==1 거래 평균 - 나머지 평균, 월 단위 부트스트랩 95% 구간."""
+    rng = np.random.default_rng(seed)
+    m = x["entry_date"].dt.to_period("M").to_numpy()
+    months = np.unique(m)
+    groups = {k: np.flatnonzero(m == k) for k in months}
+    r, f = x["net_ret"].to_numpy(), (flag.to_numpy() == 1)
+    out = []
+    for _ in range(n):
+        idx = np.concatenate([groups[k] for k in rng.choice(months, len(months))])
+        a, b = r[idx][f[idx]], r[idx][~f[idx]]
+        if len(a) and len(b):
+            out.append(a.mean() - b.mean())
+    return r[f].mean() - r[~f].mean(), *np.percentile(out, [2.5, 97.5])
+
+
 def signal_value(trades, df, col):
     """거래의 신호일(체결 전날) 값."""
     key = pd.MultiIndex.from_frame(df[["code", "date"]])
@@ -140,7 +156,9 @@ def main() -> None:
                 kept, drop = x[x[col] != 1], x[x[col] == 1]
                 if lbl == "LLM":
                     results[(cost_label, name, "filter")] = (kept["net_ret"].mean(), drop["net_ret"].mean(), len(drop))
-                print(f"  {lbl} 남김 {len(kept)}건 평균 {kept['net_ret'].mean():+.4f} | 걸러냄 {len(drop)}건 평균 {drop['net_ret'].mean():+.4f}")
+                d, lo, hi = diff_ci(x, x[col])
+                print(f"  {lbl} 남김 {len(kept)}건 평균 {kept['net_ret'].mean():+.4f} | 걸러냄 {len(drop)}건 평균 {drop['net_ret'].mean():+.4f}"
+                      f" | 차이 {d:+.4f} [{lo:+.4f},{hi:+.4f}]")
         if cost_label == "기본 비용":
             print("\n== 10-2 재료 신선도 (B0 거래, 신호일 기준)")
             for col in ["has_material_rise", "fresh_material"]:
@@ -148,7 +166,9 @@ def main() -> None:
                 for name, (s, e) in PER.items():
                     x = bt[bt["entry_date"].between(s, e)]
                     g = x.groupby(x[col].fillna(0))["net_ret"].agg(["size", "mean", lambda v: (v > 0).mean()])
-                    print(f"  {col} [{name}]", {k: [int(v["size"]), round(v["mean"], 4), round(v["<lambda_0>"], 3)] for k, v in g.iterrows()})
+                    d, lo, hi = diff_ci(x, x[col].fillna(0))
+                    print(f"  {col} [{name}]", {k: [int(v["size"]), round(v["mean"], 4), round(v["<lambda_0>"], 3)] for k, v in g.iterrows()},
+                          f"차이(1-0) {d:+.4f} [{lo:+.4f},{hi:+.4f}]")
 
     print("\n== 채택 기준 (configs/a2.toml [adoption])")
     sb_d, sa_d = results[("기본 비용", "dev")]
