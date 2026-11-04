@@ -7,10 +7,13 @@ requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.1",
     "finance-datareader>=0.9.202",
+    "lightgbm>=4.7.0",
     "pandas>=2.2",
     "pyarrow>=17.0",
     "python-dotenv>=1.0",
     "requests>=2.32",
+    "scikit-learn>=1.9.1",
+    "shap>=0.51.0",
 ]
 
 [build-system]

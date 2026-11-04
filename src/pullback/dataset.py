@@ -49,9 +49,15 @@ def make_dataset() -> pd.DataFrame:
     line = first_buy_price(df)
     g = df.groupby("code", sort=False)
     low_n, open_n, halt_n = g["low"].shift(-1), g["open"].shift(-1), g["volume"].shift(-1).eq(0)
-    sig = f["setup"] & line.notna() & (low_n <= line) & ~halt_n
+    cand = f["setup"] & line.notna()                      # 1차 주문을 내는 모든 날 (필터가 판단할 날)
+    sig = cand & (low_n <= line) & ~halt_n                # 그중 다음 날 체결된 날 (학습 표본)
     mk = add_market_features(df)
-    th = add_theme_features(df, sig)
+    th = add_theme_features(df, cand)
+    feat_all = _features(df, mk, th, df.index[cand])
+    feat_all.insert(0, "touched", sig.loc[feat_all.index].to_numpy())
+    feat_all.insert(0, "date", df.loc[feat_all.index, "date"].to_numpy())
+    feat_all.insert(0, "code", df.loc[feat_all.index, "code"].to_numpy())
+    feat_all.reset_index(drop=True).to_parquet(DATA / "candidates_a1.parquet", index=False)
 
     rows = []
     for code, x in df.groupby("code", sort=False):
@@ -72,8 +78,15 @@ def make_dataset() -> pd.DataFrame:
                 rec[f"{name}_end"] = dates[j]
             rows.append(rec)
     ds = pd.DataFrame(rows).set_index("row")
-    feat = pd.DataFrame(index=ds.index)
-    s = df.loc[ds.index]
+    out = pd.concat([ds, _features(df, mk, th, ds.index)], axis=1).reset_index(drop=True)
+    out["wave_id"] = out["code"] + "_" + pd.to_datetime(out["peak_date"]).dt.strftime("%Y%m%d")
+    return out
+
+
+def _features(df: pd.DataFrame, mk: pd.DataFrame, th: pd.DataFrame, index) -> pd.DataFrame:
+    """t일 장 마감 기준 26개 특징량 (05장과 같은 정의)."""
+    feat = pd.DataFrame(index=index)
+    s = df.loc[index]
     feat["drawdown"], feat["wave_rise"], feat["rise_days"] = s["drawdown"], s["wave_rise"], s["rise_days"]
     feat["days_since_peak"], feat["ret_1d"] = s["days_since_peak"], s["ret"]
     feat["ret_5d"] = s["close"] / s["close_5"] - 1
@@ -87,12 +100,10 @@ def make_dataset() -> pd.DataFrame:
     feat["log_amt20"] = np.log10(s["amt20"] + 1)
     feat["wave_lu_cnt"], feat["lu_run_max"] = s["wave_lu_cnt"], s["lu_run_max_wave"]
     for c in MARKET_FEATURES:
-        feat[c] = mk.loc[ds.index, c]
+        feat[c] = mk.loc[index, c]
     for c in THEME_FEATURES:
-        feat[c] = th.loc[ds.index, c].astype(float)
-    out = pd.concat([ds, feat[ALL_FEATURES]], axis=1).reset_index(drop=True)
-    out["wave_id"] = out["code"] + "_" + pd.to_datetime(out["peak_date"]).dt.strftime("%Y%m%d")
-    return out
+        feat[c] = th.loc[index, c].astype(float)
+    return feat[ALL_FEATURES]
 
 
 def main() -> None:
