@@ -39,6 +39,8 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 7-2 | `uv run python scripts/eval_07_2.py` | 국면·규모별 B0 성과, B1(`configs/b1.toml`) |
 | 7-3 | `uv run python scripts/eval_07_3.py` | H2·H3·H4와 명세서 대안 비교 (약 10분) |
 | 7-3 | `uv run python scripts/eval_07_3_account.py` | 주요 대안의 계좌 손익·MDD |
+| 8 | `uv run python -m pullback.dataset` | `data/dataset_a1.parquet` (신호일 표본, Triple Barrier 라벨, 26개 특징량) |
+| 8 | `uv run python scripts/describe_08.py` | 표본·라벨 분포(2026 비공개), 폴드별 퍼지 |
 
 ## 데이터 이용 안내
 
