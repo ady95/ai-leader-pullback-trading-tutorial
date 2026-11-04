@@ -22,8 +22,8 @@ from pullback.storage import connect
 class Params:
     # 02-1 주도주
     limit_up_ret: float = 0.295        # 상한가로 보는 종가 등락률 (가격제한폭 30%, 반올림 여유)
-    history_days: int = 120            # 급등 이력·거래대금을 돌아보는 기간(거래일)
-    amount_min: float = 5e11           # 원문 하한 5,000억 원 (단일 거래일 기준)
+    history_days: int = 120            # 대안 끼 정의(최근 N거래일 상한가)의 기간
+    amount_min: float = 5e11           # 원문 하한 5,000억 원 (상승 파동 누적 기준)
     amount_top_pct: float = 0.995      # 대안: 그날 전 종목 거래대금 상위 0.5%
     # 02-2 상승 파동과 조정
     wave_window: int = 60              # 파동 고점을 찾는 기간(거래일)
@@ -144,15 +144,16 @@ def build(df: pd.DataFrame, p: Params = Params()) -> pd.DataFrame:
 def flags(df: pd.DataFrame, p: Params = Params()) -> pd.DataFrame:
     """정의별 참/거짓 열을 붙인다. 열 이름이 곧 2장 정의의 이름이다."""
     out = pd.DataFrame(index=df.index)
-    out["kki"] = df["lu_cnt_hist"] >= 1                                  # 끼: 최근 상한가 이력
+    out["kki"] = df["wave_lu_cnt"] >= 1                                  # 끼: 상승 파동 안 상한가 (원문)
+    out["kki_hist"] = df["lu_cnt_hist"] >= 1                             # 대안: 최근 120거래일 상한가
     out["wave"] = (df["wave_rise"] >= p.wave_rise_min) & (df["days_since_peak"] >= 1)
     # 거래대금은 상승 파동 구간(저점~고점) 안에서 센다
-    out["amt_day"] = df["wave_amt_max"] >= p.amount_min                  # 원문: 단일 거래일 5,000억
-    out["amt_cum"] = df["wave_amt_sum"] >= p.amount_min                  # 대안: 파동 누적 5,000억
+    out["amt_cum"] = df["wave_amt_sum"] >= p.amount_min                  # B0: 파동 누적 5,000억 (원문 사례로 확인)
+    out["amt_day"] = df["wave_amt_max"] >= p.amount_min                  # 대안: 파동 안 하루 5,000억
     out["amt_pct"] = df["wave_amt_pct_max"] >= p.amount_top_pct          # 대안: 그날 상위 0.5%
     out["pullback"] = (out["wave"] & (df["days_since_peak"] >= p.pullback_days_min)
                        & (df["drawdown"] <= -p.pullback_min) & (df["drawdown"] >= -p.pullback_max)
                        & ~df["halted"])
-    out["leader"] = out["wave"] & out["kki"] & out["amt_day"]            # B0 주도주 (재료 조건은 10장)
+    out["leader"] = out["wave"] & out["kki"] & out["amt_cum"]            # B0 주도주 (재료 조건은 10장)
     out["setup"] = out["leader"] & out["pullback"]                       # B0 눌림목 후보일
     return out
