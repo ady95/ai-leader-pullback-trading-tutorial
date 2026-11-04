@@ -1,0 +1,91 @@
+# B0 원본 규칙 기반 눌림매매 전략 명세서 (03-3)
+#
+# 이 파일은 사전 등록 문서다. 06~07장에서 B0 수익률을 처음 계산하기 전에 커밋했고,
+# 이후 결과를 보고 값을 바꾸지 않는다. 대안 값은 [variants] 에만 적고, 비교는 07장에서 한다.
+# 출처 표기: "원문" = 원문 보고서의 값, "해석" = 원문 문구의 이 책 해석, "보완" = 원문에 없어 이 책이 추가
+
+[meta]
+id = "B0"
+version = "1.1"
+registered = "2026-11-04"
+changes = "v1.1: 매도 세금을 연도별 법정 세율로 변경 (수익률 계산 전, 06-2)"
+description = "원문 눌림매매 규칙을 일봉으로 재현한 기준 전략"
+
+[periods]
+warmup_start = "2020-01-01"     # 지표 예열 전용, 성과 평가에 쓰지 않음 (04-3)
+dev_start = "2021-01-01"        # 개발 구간: 규칙 진단, 실패 유형 분석 (07장)
+dev_end = "2024-12-31"
+validation_start = "2025-01-01" # 검증 구간: 대안 비교와 AI 모델 선택 (07~13장)
+validation_end = "2025-12-31"
+holdout_start = "2026-01-01"    # 최종 홀드아웃: 14장에서 한 번만 연다
+holdout_end = "2026-11-03"
+
+[universe]
+markets = ["KOSPI", "KOSDAQ"]
+include_delisted = true         # 생존 편향 방지 (04-2)
+common_stock_only = true        # 보통주, 스팩 제외
+
+[leader]                        # 02-1
+limit_up_ret = 0.295            # 해석: 종가 등락률 +29.5% 이상 = 상한가
+limit_up_in_wave_min = 1        # 원문: 상승 파동 국면의 상한가 이력
+wave_amount_sum_min = 5e11      # 원문 5,000억 원, 해석: 상승 파동 누적
+news_filter = false             # 원문 기준이나 B0에서는 제외 (A2에서 추가)
+
+[wave]                          # 02-2
+window = 60                     # 보완
+rise_min = 0.50                 # 보완
+pullback_min = 0.10             # 보완
+pullback_max = 0.40             # 보완
+pullback_days_min = 3           # 보완
+
+[support]                       # 02-3
+kijun_period = 120              # 해석: (120일 최고 + 최저) / 2
+ma_mid = 60                     # 원문: 60일 이동평균선
+env_period = 20                 # 보완
+env_pct = 0.20                  # 보완
+overlap_pct = 0.03              # 보완 (B0 진입 조건에는 쓰지 않음, H2 검증용)
+
+[entry]                         # 03-2
+signal_time = "close"           # t일 장 마감 후 판정, t+1일 주문
+first_price = "max_below_close(kijun120, env_low)"
+first_order = "limit"           # 원문: 지정가 예약 주문
+first_units = 1.0
+reorder_daily = true            # 체결 전까지 매일 다시 계산해 주문
+one_trade_per_wave = true       # 보완: 같은 파동에서 재진입 없음
+second_drop = 0.04              # 원문 -3~-5% 의 가운데, 1차 체결가 기준
+second_units = 1.0              # 원문 1:1 (대안 1.5배)
+second_require_ma60 = false     # 원문 사례(금호건설)와 맞지 않아 대안으로 둠
+
+[exit]                          # 03-2
+take_profit_1 = 0.20            # 원문: 20%대 1차 매도, 평균 단가 기준
+take_profit_1_fraction = 0.5    # 보완
+take_profit_2 = "limit_up"      # 원문: 상한가 인근 잔여 매도
+stop_zone_buffer = 0.03         # 해석: 매수 영역 하단 아래 3% 초과 종가 이탈
+stop_action = "all_next_open"   # 보완: 원문의 지수 조건·단계 축소는 대안
+max_hold_days = 60              # 보완
+halted = "hold_until_resume"    # 04-2: 거래정지 중에는 청산 불가, 재개 첫날 시가 청산 판정
+
+[costs]                         # 06-2: 증권거래세+농어촌특별세 합계, 코스피·코스닥 동일
+commission_one_way = 0.00015
+sell_tax = 0.0020               # v1.0 값, sell_tax_by_year 가 없는 연도에만 사용
+sell_tax_by_year = { 2020 = 0.0023, 2021 = 0.0023, 2022 = 0.0023, 2023 = 0.0020, 2024 = 0.0018, 2025 = 0.0015, 2026 = 0.0020 }
+slippage_one_way = 0.001        # 기본
+slippage_one_way_stress = 0.003 # 보수적 시나리오
+
+[judgement]                     # 01-3
+min_trades_per_period = 100
+primary_metric = "mean_net_return_per_trade"
+risk_metrics = ["account_mdd", "worst_trade"]
+
+[variants]                      # 07장 이후 비교할 대안 (B0 기본값은 위)
+wave_amount = ["day_max_5e11", "pct_rank_0.995"]
+leader_history = ["limit_up_120d"]
+kijun = ["sma120"]
+env_pct = [0.10, 0.15]
+second_drop = [0.03, 0.05]
+second_units = [1.5]
+second_require_ma60 = [true]
+take_profit = ["fixed_0.25", "large_cap_0.025"]
+stop = ["literal_index_crash_staged", "none"]
+max_hold_days = [20, 120]
+entry = ["recovery_close"]

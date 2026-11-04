@@ -33,6 +33,8 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 5-2 | `uv run python -m pullback.collect.theme_snapshot` | `data/raw/theme_snapshots/날짜.parquet` (키움 테마 스냅샷, 장 마감 뒤 매일) |
 | 5-2 | `uv run python scripts/describe_05_2.py` | 상대강도·동반 급등 테마 특징량, 키움 테마 비교, 절단 검증 |
 | 5-3 | `uv run python scripts/verify_05_3.py` | 절단 검증(미래 데이터 누수 검사), 수정주가 누수 규모 (약 4분) |
+| 6 | `uv run pytest -q` | B0 엔진 규칙 테스트 (손 계산 시나리오 10개) |
+| 6 | `uv run python scripts/run_b0.py` | B0 백테스트 실행 통계, `data/results/B0_v1.2_*.parquet` (수익률은 07장에서 `--show-returns`) |
 
 ## 데이터 이용 안내
 

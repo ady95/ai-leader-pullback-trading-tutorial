@@ -6,8 +6,9 @@
 
 [meta]
 id = "B0"
-version = "1.0"
+version = "1.2"
 registered = "2026-11-04"
+changes = "v1.1: 매도 세금을 연도별 법정 세율로 변경. v1.2: 체결 규칙 [execution] 명시 (모두 수익률 계산 전, 06장)"
 description = "원문 눌림매매 규칙을 일봉으로 재현한 기준 전략"
 
 [periods]
@@ -64,11 +65,23 @@ stop_action = "all_next_open"   # 보완: 원문의 지수 조건·단계 축소
 max_hold_days = 60              # 보완
 halted = "hold_until_resume"    # 04-2: 거래정지 중에는 청산 불가, 재개 첫날 시가 청산 판정
 
-[costs]                         # 06-2에서 공식 자료로 다시 확인
+[costs]                         # 06-2: 증권거래세+농어촌특별세 합계, 코스피·코스닥 동일
 commission_one_way = 0.00015
-sell_tax = 0.0020
+sell_tax = 0.0020               # v1.0 값, sell_tax_by_year 가 없는 연도에만 사용
+sell_tax_by_year = { 2020 = 0.0023, 2021 = 0.0023, 2022 = 0.0023, 2023 = 0.0020, 2024 = 0.0018, 2025 = 0.0015, 2026 = 0.0020 }
 slippage_one_way = 0.001        # 기본
 slippage_one_way_stress = 0.003 # 보수적 시나리오
+
+[execution]                     # 06-1, 06-2 (일봉 체결 규칙)
+intraday_order = ["exit_at_open", "limit_buys", "limit_sells", "close_decisions"]  # 불리한 쪽 먼저
+no_sell_on_entry_day = true     # 일봉으로는 같은 날 매수·매도 선후를 알 수 없음
+buy_fill = "min(open, limit) if low <= limit"    # 갭 하락이면 시가 체결
+sell_fill = "max(open, limit) if high >= limit"
+limit_up_sell_fill = "high"     # 상한가 도달일의 고가(= 상한가)
+locked_limit_down = "defer_sell"  # 점하한가에는 매도 불가, 다음 거래일로
+halted = "no_trade"
+tick_rounding = false           # 수정주가 기준이라 호가 단위 반올림 생략, 슬리피지로 흡수
+strict_touch_variant = true     # 대안: 저가가 지정가보다 낮아야 체결
 
 [judgement]                     # 01-3
 min_trades_per_period = 100
