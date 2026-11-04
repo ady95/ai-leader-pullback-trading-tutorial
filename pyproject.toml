@@ -8,6 +8,7 @@ dependencies = [
     "duckdb>=1.1",
     "finance-datareader>=0.9.202",
     "lightgbm>=4.7.0",
+    "openai>=2",
     "pandas>=2.2",
     "pyarrow>=17.0",
     "python-dotenv>=1.0",
