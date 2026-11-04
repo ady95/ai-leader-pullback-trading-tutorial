@@ -26,6 +26,8 @@ def frame(bars, setup_days=(0,), line=100.0, peak="2024-01-01"):
     df["peak_date"] = pd.Timestamp(peak)
     df["kijun120"] = line
     df["env_low"] = line * 0.8
+    df["ma60"] = line * 0.9
+    df["ma120"] = line * 0.7
     setup = pd.Series(False, index=df.index)
     setup.iloc[list(setup_days)] = True
     return df, setup

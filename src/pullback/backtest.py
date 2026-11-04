@@ -34,6 +34,12 @@ class Rules:
     sell_tax_by_year: dict = field(default_factory=dict)
     sell_tax_default: float = 0.0020
     strict_touch: bool = False      # True면 지정가 매수는 저가가 주문가보다 '낮아야' 체결
+    # 07-3 대안 비교용 (기본값 = B0)
+    first_line: str = "b0"          # b0 | ma60 | ma120_env
+    use_stop: bool = True
+    tp_mode: str = "b0"             # b0 | fixed
+    tp_fixed: float = 0.25
+    second_require_ma60: bool = False   # 원문 문구: 2차 매수가가 전날 60일선 ±3% 안일 때만
 
     @classmethod
     def from_spec(cls, spec: dict, **override) -> "Rules":
@@ -52,9 +58,12 @@ class Rules:
         return self.sell_tax_by_year.get(year, self.sell_tax_default)
 
 
-def first_buy_price(df: pd.DataFrame) -> pd.Series:
-    """t일 장 마감에 계산하는 1차 매수선: 종가 아래 기준선·엔벨로프 하단 중 높은 쪽."""
-    cols = df[["kijun120", "env_low"]]
+LINES = {"b0": ["kijun120", "env_low"], "ma60": ["ma60"], "ma120_env": ["ma120", "env_low"]}
+
+
+def first_buy_price(df: pd.DataFrame, kind: str = "b0") -> pd.Series:
+    """t일 장 마감에 계산하는 1차 매수선: 종가 아래에 있는 후보 지지선 중 가장 높은 것 (B0: 기준선·엔벨로프 하단)."""
+    cols = df[LINES[kind]]
     return cols.where(cols.lt(df["close"], axis=0)).max(axis=1)
 
 
@@ -69,7 +78,8 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
     pc = x["prev_close"].to_numpy(float)
     halted = x["halted"].to_numpy(bool)
     peak = x["peak_date"].to_numpy()
-    line = first_buy_price(x).to_numpy(float)
+    line = first_buy_price(x, r.first_line).to_numpy(float)
+    ma60 = x["ma60"].to_numpy(float)
     code = x["code"].iloc[0]
 
     trades, events = [], []
@@ -102,14 +112,26 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
                 pos = None
             else:
                 entry_day = i == pos["entry_i"]
-                if not entry_day and not pos["second_done"] and _touch(lo[i], pos["second_price"], r.strict_touch):
+                near60 = (not r.second_require_ma60) or (i > 0 and abs(ma60[i - 1] / pos["second_price"] - 1) <= 0.03)
+                if (not entry_day and r.second_units > 0 and near60 and not pos["second_done"]
+                        and _touch(lo[i], pos["second_price"], r.strict_touch)):
                     price = min(o[i], pos["second_price"])
                     pos["buys"].append((price, r.second_units, d[i]))
                     pos["units"] += r.second_units
                     pos["second_done"] = True
                     pos["trade"]["second_date"] = d[i]
                     ev(i, "buy2", price, r.second_units)
-                if not entry_day:
+                if not entry_day and r.tp_mode == "fixed":
+                    avg = sum(p * u for p, u, _ in pos["buys"]) / sum(u for _, u, _ in pos["buys"])
+                    tp = avg * (1 + r.tp_fixed)
+                    if h[i] >= tp:
+                        price = max(o[i], tp)
+                        pos["sells"].append((price, pos["units"], d[i]))
+                        ev(i, "sell", price, pos["units"], "tp_fixed")
+                        pos["units"] = 0.0
+                        close_trade(i, "tp_fixed")
+                        pos = None
+                elif not entry_day:
                     avg = sum(p * u for p, u, _ in pos["buys"]) / sum(u for _, u, _ in pos["buys"])
                     tp1 = avg * (1 + r.take_profit_1)
                     if not pos["tp1_done"] and h[i] >= tp1:
@@ -144,7 +166,7 @@ def simulate_stock(x: pd.DataFrame, setup: np.ndarray, r: Rules) -> tuple[list[d
         if pos is not None:
             stop_line = pos["second_price"] * (1 - r.stop_zone_buffer)
             if not halted[i]:
-                if c[i] < stop_line:
+                if r.use_stop and c[i] < stop_line:
                     pos["exit_next_open"] = "stop"
                 elif i - pos["entry_i"] >= r.max_hold_days:
                     pos["exit_next_open"] = "time"
@@ -171,7 +193,7 @@ def _pnl(trade_buys, trade_sells, r: Rules) -> tuple[float, float, float]:
 def run(df: pd.DataFrame, setup: pd.Series, r: Rules) -> tuple[pd.DataFrame, pd.DataFrame]:
     """전 종목 실행. trades 표(거래당 한 행)와 events 표(체결 기록)를 돌려준다."""
     cols = ["code", "date", "open", "high", "low", "close", "prev_close", "halted",
-            "peak_date", "kijun120", "env_low"]
+            "peak_date", "kijun120", "env_low", "ma60", "ma120"]
     all_trades, all_events = [], []
     for code, x in df[cols].groupby("code", sort=True):
         s = setup.loc[x.index].to_numpy(bool)

@@ -35,6 +35,10 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 5-3 | `uv run python scripts/verify_05_3.py` | 절단 검증(미래 데이터 누수 검사), 수정주가 누수 규모 (약 4분) |
 | 6 | `uv run pytest -q` | B0 엔진 규칙 테스트 (손 계산 시나리오 10개) |
 | 6 | `uv run python scripts/run_b0.py` | B0 백테스트 실행 통계, `data/results/B0_v1.2_*.parquet` (수익률은 07장에서 `--show-returns`) |
+| 7-1 | `uv run python scripts/eval_07_1.py` | B0 개발·검증 구간 성과, 신뢰구간, 연도별, MAE·MFE, 계좌 MDD, 비용 민감도 |
+| 7-2 | `uv run python scripts/eval_07_2.py` | 국면·규모별 B0 성과, B1(`configs/b1.toml`) |
+| 7-3 | `uv run python scripts/eval_07_3.py` | H2·H3·H4와 명세서 대안 비교 (약 10분) |
+| 7-3 | `uv run python scripts/eval_07_3_account.py` | 주요 대안의 계좌 손익·MDD |
 
 ## 데이터 이용 안내
 
