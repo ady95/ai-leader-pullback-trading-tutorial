@@ -54,6 +54,14 @@ cp .env.example .env         # 앱키 등을 채운다 (.env 는 커밋 금지)
 | 13 | `uv run python scripts/eval_13.py` | A3 청산 구성요소(X1 고정 목표, X2 낮은 1차 익절, X3 ATR 손절, X4 트레일링, T1 시간 청산, T2 무진전 청산), MFE·회전율 진단, 채택 판정 |
 | 14 | `uv run python scripts/eval_14.py` | 국면 규칙(R1 급락 직후, R2 깊은 하락장) 판정, 스트레스 시험, Walk-forward 선택 (2026 성과는 계산하지 않음) |
 | 14 | `uv run python scripts/eval_14.py --holdout` | 최종 홀드아웃 2026-01-01 ~ 2026-11-03 (한 번만) |
+| 15-1 | `uv run python scripts/replay_15.py` | 운영 엔진(`src/pullback/live/`)을 하루씩 재생해 백테스트와 이벤트 대조, 주문 변환 차이, `data/live/state.json` (약 1분) |
+| 15-1 | `uv run python scripts/replay_15.py --mutate tp1` | 일부러 틀린 엔진으로 대조가 차이를 잡는지 확인 (`tp1`, `hold`) |
+| 15-2 | `uv run python scripts/batch_15.py --coverage` | 감시 목록(최근 60거래일 상한가)이 B0 후보일을 모두 덮는지 |
+| 15-2 | `uv run python scripts/batch_15.py --truncation` | 마지막 20거래일 절단 배치: t일까지의 데이터만으로 같은 후보가 나오는지 |
+| 15-2 | `uv run python scripts/batch_15.py --live` | 실제 장 마감 데이터로 배치, 다음 거래일 주문 계획 `data/live/plan_*.json` (주문은 내지 않음, 약 5분) |
+| 15-2 | `uv run python scripts/ws_15.py --minutes 10` | 키움 WebSocket 로그인·주문체결(00) 구독·PING 응답 시험 |
+| 15-3 | `uv run python scripts/audit_15.py` | 감사 기록 해시 체인 검증과 변조 시험 |
+| 15-3 | `uv run streamlit run app/dashboard.py` | 운영 모니터링 화면 (읽기 전용) |
 
 ## 데이터 이용 안내
 
