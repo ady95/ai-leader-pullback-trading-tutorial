@@ -1,0 +1,63 @@
+# 16장 주문·체결·복구 검증 명세서 (사전 등록)
+#
+# 15장에서 모의 체결기 자리에 두었던 증권사 어댑터를 키움 모의투자 주문으로 바꾼다.
+# 이 명세서는 어댑터·주문 관리 코드를 만들기 전에 커밋하며, 아래 기준은 결과를 보고 바꾸지 않는다.
+# 기준을 못 넘으면 고치고 다시 재되, 무엇이 틀렸는지를 16장 본문에 적는다.
+
+[meta]
+id = "LIVE-16"
+version = "1.0"
+registered = "2026-11-06"
+purpose = "주문을 정확히 한 번 내고, 상태를 증권사와 맞추고, 장애 뒤에도 같은 상태로 돌아오는지 검증"
+
+[scope]
+server = "paper"                    # 키움 모의투자만. 실전 키는 쓰지 않는다
+b0_plan_orders = false              # 15장의 11-06 주문 계획은 내지 않는다 (17장 모의매매 운영에서)
+test_orders_only = true             # 시험용 주문만: 1~2주, 체결 시험 종목은 주가 3만 원 이하
+max_test_notional = 200000          # 시험 중 동시에 보유하는 시험 종목 평가액 상한 (원)
+foreign_activity = "계좌에 이 시스템이 내지 않은 보유·주문이 있을 수 있다. 시스템은 자기 주문번호만 건드린다"
+
+[checks.state_machine]              # 16-1: 오프라인
+states = ["NEW", "SENT", "ACCEPTED", "PARTIAL", "FILLED", "CANCELLED", "REJECTED", "UNKNOWN"]
+illegal_transition = "예외. 모든 전이표 밖 조합을 테스트"
+fake_broker_scenarios = ["즉시 체결", "부분 체결 후 잔량 취소", "정정 후 체결", "거부", "응답 유실"]
+
+[checks.lifecycle]                  # 16-1: 모의투자 서버, 장중
+steps = ["지정가 매수 접수(체결 안 될 가격)", "미체결 조회에 나타남", "가격 정정", "취소", "미체결에서 사라짐"]
+return_code = 0
+open_orders_consistent_within_seconds = 5
+expected_final_state = "CANCELLED"
+
+[checks.fill]                       # 16-1
+steps = ["매수 체결", "잔고 반영", "매도 체결", "잔고 0"]
+ws_notice_required = true           # 체결마다 WebSocket 주문체결(00) 통보를 받아야 한다
+match_executions = "체결 통보의 (주문번호, 수량, 가격) == 체결 조회(ka10076)"
+match_rate_min = 1.0
+latency = "서술 통계 (REST 응답 시간, 접수→체결 통보 시간)"
+
+[checks.idempotency]                # 16-2
+repeat_submit = 5                   # 같은 주문 키로 두 번씩 제출
+crash_trials = 5                    # 전송 직후·주문번호 기록 전에 프로세스가 죽었다고 보고 재시작
+max_duplicates = 0                  # 증권사에 같은 키의 주문이 두 건 이상이면 실패
+recovery = "주문 일지 + 미체결·체결 조회로 주문번호를 다시 찾는다. 못 찾거나 둘 이상이면 그 키를 막는다"
+
+[checks.amend]                      # 16-2: 2차 매수 체결 뒤 1차 익절가 정정 (15-1)
+steps = ["보유 2주 중 1주 지정가 매도(체결 안 될 가격)", "가격 정정", "미체결 가격 == 정정 가격", "취소"]
+open_order_price_matches = true
+
+[checks.reconnect]                  # 16-3
+force_disconnect = 1                # 장중에 연결을 강제로 끊는다
+reconnect_within_seconds = 30       # 다시 로그인·구독까지
+missed_fill_recovery = 1.0          # 끊긴 동안 일어난 체결을 체결 조회로 100% 복구
+
+[checks.reconcile]                  # 16-3
+injected = ["수량 차이", "증권사에만 있는 종목", "엔진에만 있는 종목"]
+detect_rate = 1.0
+foreign_holdings = "엔진이 소유하지 않은 종목은 '외부 보유'로 보고만 하고 주문하지 않는다"
+on_mismatch = "그 종목의 신규 주문을 막는다"
+
+[checks.kill_switch]                # 16-3
+open_test_orders = 3
+cancel_all_within_seconds = 10      # 긴급 중지부터 자기 미체결 주문 전부 취소 확인까지
+submits_after_kill = 0
+foreign_orders_touched = 0
